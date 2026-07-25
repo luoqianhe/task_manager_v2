@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform_flag: --mac
+            artifact_glob: 'electron-app/dist/*.dmg'
+            artifact_name: dmg
+          - os: windows-latest
+            platform_flag: --win
+            artifact_glob: 'electron-app/dist/*.exe'
+            artifact_name: exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: electron-app
+        run: npm ci
+
+      - name: Build renderer + main
+        working-directory: electron-app
+        run: npx electron-vite build
+
+      - name: Package with electron-builder
+        working-directory: electron-app
+        run: npx electron-builder ${{ matrix.platform_flag }}
+        env:
+          # Skips code signing — remove these lines if you add a signing cert later
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          WIN_CSC_LINK: ''
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-organizer-${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error

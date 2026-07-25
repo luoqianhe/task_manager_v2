@@ -161,6 +161,13 @@ task_manager.db*
 output.txt
 git_commands.txt
 Final\ Code\ Review\ Plan.txt
+db_diagnostic_tool.py
+startup_manager_test.py
+insert_test_data.py
+update_db_schema.py
+test_db_config.py
+CONVERSION_INSTRUCTIONS.md
+
 
 # Temporary and backup files
 *.tmp
@@ -182,6 +189,16 @@ dist/
 *.pkg
 *.deb
 *.rpm
+
+# Electron app — generated/installed files (source kept above in electron-app/)
+electron-app/node_modules/
+electron-app/out/
+electron-app/dist/
+electron-app/build/
+
+# Sensitive / local-only files
+credentials.json
+_debug_dropdowns.json
 
 # Development files
 build.windows.bat

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="#0f172a"/>
+
+  <!-- Outer glow ring -->
+  <circle cx="512" cy="512" r="330" fill="none" stroke="#1e3a6e" stroke-width="4"/>
+
+  <!-- Clock circle -->
+  <circle cx="512" cy="512" r="300" fill="#0f1f3d"/>
+  <circle cx="512" cy="512" r="300" fill="none" stroke="#3b82f6" stroke-width="22"/>
+
+  <!-- Hour marks -->
+  <line x1="512" y1="240" x2="512" y2="276" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+  <line x1="512" y1="748" x2="512" y2="784" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+  <line x1="240" y1="512" x2="276" y2="512" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+  <line x1="748" y1="512" x2="784" y2="512" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Minor hour marks -->
+  <line x1="661" y1="258" x2="646" y2="285" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="766" y1="363" x2="739" y2="378" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="766" y1="661" x2="739" y2="646" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="661" y1="766" x2="646" y2="739" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="363" y1="258" x2="378" y2="285" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="258" y1="363" x2="285" y2="378" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="258" y1="661" x2="285" y2="646" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+  <line x1="363" y1="766" x2="378" y2="739" stroke="#1e40af" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Minute hand (pointing to ~10 past) -->
+  <line x1="512" y1="512" x2="572" y2="310" stroke="white" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- Hour hand (pointing to ~2 o'clock) -->
+  <line x1="512" y1="512" x2="672" y2="440" stroke="white" stroke-width="26" stroke-linecap="round"/>
+
+  <!-- Center cap -->
+  <circle cx="512" cy="512" r="22" fill="#3b82f6"/>
+  <circle cx="512" cy="512" r="10" fill="white"/>
+</svg>
