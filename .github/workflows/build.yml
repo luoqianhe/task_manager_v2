@@ -43,7 +43,6 @@ jobs:
         working-directory: electron-app
         run: npx electron-builder ${{ matrix.platform_flag }}
         env:
-          # Skips code signing — remove these lines if you add a signing cert later
           CSC_IDENTITY_AUTO_DISCOVERY: false
           WIN_CSC_LINK: ''
 
