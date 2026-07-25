@@ -12,9 +12,11 @@ jobs:
       matrix:
         include:
           - os: macos-latest
+            platform_flag: --mac
             artifact_glob: 'electron-app/dist/*.dmg'
             artifact_name: dmg
           - os: windows-latest
+            platform_flag: --win
             artifact_glob: 'electron-app/dist/*.exe'
             artifact_name: exe
 
@@ -37,21 +39,11 @@ jobs:
         working-directory: electron-app
         run: npx electron-vite build
 
-      - name: Package (macOS)
-        if: runner.os == 'macOS'
+      - name: Package with electron-builder
         working-directory: electron-app
-        run: npx electron-builder --mac
+        run: npx electron-builder ${{ matrix.platform_flag }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-
-      - name: Package (Windows)
-        if: runner.os == 'Windows'
-        working-directory: electron-app
-        shell: pwsh
-        run: |
-          Remove-Item Env:\WIN_CSC_LINK -ErrorAction SilentlyContinue
-          Remove-Item Env:\CSC_LINK -ErrorAction SilentlyContinue
-          npx electron-builder --win
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

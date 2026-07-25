@@ -50,7 +50,8 @@
       ]
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "sign": "./skip-sign.js"
     },
     "linux": {
       "target": "AppImage"
