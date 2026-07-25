@@ -41,7 +41,6 @@
   "build": {
     "appId": "com.taskorganizer.app",
     "productName": "Task Organizer",
-    "icon": "assets/icon.icns",
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
@@ -51,14 +50,11 @@
     },
     "win": {
       "target": "nsis",
+      "icon": "assets/icon.ico",
       "sign": "./skip-sign.js"
     },
     "linux": {
       "target": "AppImage"
-    },
-    "files": [
-      "out/**/*",
-      "assets/icon.icns"
-    ]
+    }
   }
 }
