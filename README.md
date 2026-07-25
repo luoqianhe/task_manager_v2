@@ -37,6 +37,7 @@ A modern, feature-rich task management application built with Python and PyQt6. 
 - **File Attachments**: Associate files with tasks
 - **Search and Filter**: Quickly find tasks (planned feature)
 - **Debug Logging**: Comprehensive logging for troubleshooting
+- **Integration with Bee To-Do API**: Add/delete tasks from your Bee wearable using your API key
 
 ## Screenshots
 
