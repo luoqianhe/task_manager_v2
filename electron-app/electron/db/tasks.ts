@@ -48,9 +48,11 @@ export function registerTaskHandlers() {
   ipcMain.handle('tasks:get', (_event, id: number) => {
     const db = getDb()
     const task = db.prepare(`
-      SELECT t.*, c.name as category_name, c.color as category_color
+      SELECT t.*, c.name as category_name, c.color as category_color,
+             p.title as parent_title
       FROM tasks t
       LEFT JOIN categories c ON t.category_id = c.id
+      LEFT JOIN tasks p ON t.parent_id = p.id
       WHERE t.id = ?
     `).get(id)
 

@@ -67,6 +67,7 @@ export function TaskDetail() {
   const [editPriority, setEditPriority] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [editCategoryId, setEditCategoryId] = useState<number | null>(null)
+  const [editParentId, setEditParentId] = useState<number | null>(null)
   const [editLinks, setEditLinks] = useState<Array<{ url: string; label: string }>>([])
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export function TaskDetail() {
       setEditPriority(t.priority)
       setEditDueDate(t.due_date || '')
       setEditCategoryId(t.category_id)
+      setEditParentId(t.parent_id)
       setEditLinks(t.links?.map((l) => ({ url: l.url, label: l.label })) ?? [])
     })
     window.api.files.list(selectedTaskId).then(setAttachments)
@@ -113,6 +115,7 @@ export function TaskDetail() {
       priority: editPriority,
       due_date: editDueDate || null,
       category_id: editCategoryId,
+      parent_id: editParentId,
       links: editLinks.filter((l) => l.url.trim()),
     } as Parameters<typeof updateTask>[1])
     setIsEditing(false)
@@ -172,6 +175,10 @@ export function TaskDetail() {
   const statusOptions = statuses.map((s) => s.name)
   const priorityOptions = priorities.map((p) => p.name)
 
+  // Only root-level tasks can be picked as a parent, to keep subtasks one level deep
+  const parentOptions = tasks.filter((t) => t.parent_id === null && t.id !== fullTask.id)
+  const hasChildren = tasks.some((t) => t.parent_id === fullTask.id)
+
   // ── EDIT FORM ──
   if (isEditing) {
     return (
@@ -224,6 +231,23 @@ export function TaskDetail() {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Parent Task */}
+          <div>
+            <label className="text-xs text-neutral-500 mb-1 block">Parent Task</label>
+            <select
+              value={editParentId ?? ''}
+              onChange={(e) => setEditParentId(e.target.value ? Number(e.target.value) : null)}
+              disabled={hasChildren}
+              className="w-full bg-neutral-800 text-neutral-300 rounded-md px-2.5 py-1.5 text-sm border border-neutral-700 focus:outline-none focus:border-neutral-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">None</option>
+              {parentOptions.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </select>
+            {hasChildren && (
+              <p className="text-xs text-neutral-600 mt-1">This task has subtasks, so it can't become a subtask itself.</p>
+            )}
           </div>
 
           {/* Links */}
@@ -324,6 +348,13 @@ export function TaskDetail() {
             <div className="flex items-center gap-2">
               <Tag size={13} className="text-neutral-600 shrink-0" />
               <span className="text-sm text-neutral-300">{fullTask.category_name}</span>
+            </div>
+          )}
+
+          {fullTask.parent_title && (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={13} className="text-neutral-600 shrink-0" />
+              <span className="text-sm text-neutral-300">Subtask of {fullTask.parent_title}</span>
             </div>
           )}
 

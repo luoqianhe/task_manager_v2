@@ -9,8 +9,11 @@ interface AddTaskModalProps {
 }
 
 export function AddTaskModal({ onClose }: AddTaskModalProps) {
-  const { categories, priorities, statuses, activeTab } = useStore()
+  const { categories, priorities, statuses, activeTab, tasks } = useStore()
   const { createTask } = useTasks()
+
+  // Only root-level tasks can be picked as a parent, to keep subtasks one level deep
+  const parentOptions = tasks.filter((t) => t.parent_id === null)
 
   const defaultStatus = activeTab === 'backlog' ? 'Backlog' : activeTab === 'completed' ? 'Completed' : 'Not Started'
 
@@ -138,6 +141,19 @@ export function AddTaskModal({ onClose }: AddTaskModalProps) {
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+          </div>
+
+          {/* Parent Task */}
+          <div>
+            <label className="text-xs text-neutral-500 mb-1 block">Parent Task</label>
+            <select
+              value={form.parent_id ?? ''}
+              onChange={(e) => setField('parent_id', e.target.value ? Number(e.target.value) : null)}
+              className="w-full bg-neutral-800 text-neutral-300 rounded-md px-2.5 py-1.5 text-sm border border-neutral-700 focus:outline-none focus:border-neutral-500"
+            >
+              <option value="">None</option>
+              {parentOptions.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </select>
           </div>
 
           {/* Links */}
