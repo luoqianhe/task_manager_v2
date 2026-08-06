@@ -6,6 +6,7 @@ type SheetsClient = ReturnType<typeof google.sheets>
 type OAuth2Client = InstanceType<typeof google.auth.OAuth2>
 
 const TASK_ID_COL = '_TaskID'
+const PARENT_ID_COL = '_ParentTaskID'
 
 export async function detectColumns(auth: OAuth2Client, sheetId: string, tabName: string): Promise<string[]> {
   const sheets = google.sheets({ version: 'v4', auth })
@@ -17,11 +18,13 @@ export async function detectColumns(auth: OAuth2Client, sheetId: string, tabName
   return row.filter((c): c is string => typeof c === 'string' && c.trim() !== '')
 }
 
-async function ensureTaskIdColumn(
-  sheets: SheetsClient, sheetId: string, tabName: string, columns: string[]
-): Promise<{ ok: boolean; index: number }> {
-  const idx = columns.indexOf(TASK_ID_COL)
-  if (idx !== -1) return { ok: true, index: idx }
+// Ensures a hidden bookkeeping column (e.g. _TaskID, _ParentTaskID) exists, appending it if missing.
+// Returns the updated columns array so callers can chain multiple ensures without a network re-fetch.
+async function ensureHiddenColumn(
+  sheets: SheetsClient, sheetId: string, tabName: string, columns: string[], colName: string
+): Promise<{ index: number; columns: string[] }> {
+  const idx = columns.indexOf(colName)
+  if (idx !== -1) return { index: idx, columns }
 
   const newIdx = columns.length
   const letter = getColumnLetter(newIdx + 1)
@@ -29,7 +32,7 @@ async function ensureTaskIdColumn(
     spreadsheetId: sheetId,
     range: `${tabName}!${letter}1`,
     valueInputOption: 'RAW',
-    requestBody: { values: [[TASK_ID_COL]] },
+    requestBody: { values: [[colName]] },
   })
 
   // Hide the column
@@ -53,7 +56,7 @@ async function ensureTaskIdColumn(
     }
   } catch { /* non-fatal */ }
 
-  return { ok: true, index: newIdx }
+  return { index: newIdx, columns: [...columns, colName] }
 }
 
 function parseDate(val: string | null): string | null {
@@ -166,14 +169,17 @@ export async function syncWorkspace(
 ): Promise<SyncResult> {
   const sheets = google.sheets({ version: 'v4', auth })
 
-  // ── Detect columns & ensure _TaskID ──────────────────────────────────────
+  // ── Detect columns & ensure hidden bookkeeping columns ───────────────────
   let columns = await detectColumns(auth, sheetId, tabName)
-  let taskIdColIndex = (await ensureTaskIdColumn(sheets, sheetId, tabName, columns)).index
-  // Re-fetch headers now that _TaskID may have been added
+  let taskIdRes = await ensureHiddenColumn(sheets, sheetId, tabName, columns, TASK_ID_COL)
+  let parentIdRes = await ensureHiddenColumn(sheets, sheetId, tabName, taskIdRes.columns, PARENT_ID_COL)
+  let taskIdColIndex = taskIdRes.index
+  let parentIdColIndex = parentIdRes.index
+  // Re-fetch headers now that hidden columns may have been added
   let freshColumns = await detectColumns(auth, sheetId, tabName)
 
   // Bootstrap column headers for a brand-new empty sheet
-  if (freshColumns.filter(c => c !== TASK_ID_COL).length === 0) {
+  if (freshColumns.filter(c => c !== TASK_ID_COL && c !== PARENT_ID_COL).length === 0) {
     const mappedCols = Object.values(mapping).filter((v): v is string => typeof v === 'string')
     if (mappedCols.length > 0) {
       await sheets.spreadsheets.values.update({
@@ -183,7 +189,10 @@ export async function syncWorkspace(
         requestBody: { values: [mappedCols] },
       })
       columns = await detectColumns(auth, sheetId, tabName)
-      taskIdColIndex = (await ensureTaskIdColumn(sheets, sheetId, tabName, columns)).index
+      taskIdRes = await ensureHiddenColumn(sheets, sheetId, tabName, columns, TASK_ID_COL)
+      parentIdRes = await ensureHiddenColumn(sheets, sheetId, tabName, taskIdRes.columns, PARENT_ID_COL)
+      taskIdColIndex = taskIdRes.index
+      parentIdColIndex = parentIdRes.index
       freshColumns = await detectColumns(auth, sheetId, tabName)
     }
   }
@@ -210,23 +219,23 @@ export async function syncWorkspace(
   const seenLocalIds = new Set<number>()
   // Rows needing _TaskID written back
   const rowsNeedingId: Array<{ rowNum: number; taskId: number }> = []
+  // Maps a subtask row's parent-reference (the parent's _TaskID value AS IT APPEARED in the sheet
+  // before this pull) to the parent's resolved local id, so pass 2 can attach subtasks correctly
+  // even if the parent's local id has just changed (e.g. first sync on a fresh machine).
+  const parentIdRemap = new Map<number, number>()
   // Rows to update in sheet (task data changed locally since last pull)
   // We handle this in the push phase below.
 
-  // ── PULL: sheet → local DB ───────────────────────────────────────────────
-  for (let i = 0; i < sheetRows.length; i++) {
-    const rowNum = i + 2  // 1-indexed, row 1 is header
-    const row = sheetRows[i]
-    if (!row || row.every(c => !c?.trim())) continue
-    if (tombstones.has(rowNum)) continue
+  const getParentRaw = (row: string[]): string =>
+    parentIdColIndex !== -1 ? (row[parentIdColIndex] ?? '').trim() : ''
 
+  // Create/update a single local task from a sheet row. `parentLocalId` is null for root tasks.
+  // Returns the task's resolved local id, or null if the row has no title (skipped).
+  function pullOneRow(row: string[], rowNum: number, parentLocalId: number | null): number | null {
     const taskData = rowToTask(row, freshColumns, mapping)
-    if (!taskData.title) continue
+    if (!taskData.title) return null
 
-    // Extract _TaskID from row
-    const taskIdRaw = freshColumns.includes(TASK_ID_COL)
-      ? (row[freshColumns.indexOf(TASK_ID_COL)] ?? '').trim()
-      : ''
+    const taskIdRaw = taskIdColIndex !== -1 ? (row[taskIdColIndex] ?? '').trim() : ''
     const stableId = taskIdRaw ? parseInt(taskIdRaw, 10) : null
 
     // Ensure reference data exists
@@ -248,7 +257,7 @@ export async function syncWorkspace(
 
     if (existing) {
       seenLocalIds.add(existing.id)
-      db.prepare('UPDATE tasks SET sheet_row_id = ? WHERE id = ?').run(rowNum, existing.id)
+      db.prepare('UPDATE tasks SET sheet_row_id = ?, parent_id = ? WHERE id = ?').run(rowNum, parentLocalId, existing.id)
 
       // Conflict resolution: sheet wins if its last_modified >= local
       let shouldUpdate = false
@@ -286,31 +295,86 @@ export async function syncWorkspace(
       }
 
       if (!stableId) rowsNeedingId.push({ rowNum, taskId: existing.id })
+      return existing.id
     } else {
-      // New task from sheet
+      // New task from sheet. Prefer inserting with the sheet's own stable id when it's free
+      // locally, instead of always letting SQLite autoincrement assign one. Otherwise, on a
+      // fresh machine pulling root tasks and subtasks in different passes, autoincrement can
+      // hand a task the exact id that ANOTHER row's stable id refers to — and a later row in
+      // this same sync would then match that id and silently overwrite the wrong task.
       const maxOrder = (db.prepare('SELECT COALESCE(MAX(display_order),0) as m FROM tasks').get() as { m: number }).m
-      const result = db.prepare(`
-        INSERT INTO tasks (title, description, status, priority, due_date,
-          category_id, assigned_to, workspace, sheet_row_id, last_modified, display_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-      `).run(
-        taskData.title,
-        taskData.description,
-        taskData.status ?? 'Not Started',
-        taskData.priority ?? 'Unprioritized',
-        taskData.due_date,
-        categoryId,
-        taskData.assigned_to,
-        workspace,
-        rowNum,
-        taskData.last_modified ?? now,
-        maxOrder + 1,
-      )
-      const newId = Number(result.lastInsertRowid)
+      const idIsFree = stableId !== null && !db.prepare('SELECT 1 FROM tasks WHERE id = ?').get(stableId)
+
+      const result = idIsFree
+        ? db.prepare(`
+            INSERT INTO tasks (id, title, description, status, priority, due_date,
+              category_id, assigned_to, workspace, sheet_row_id, last_modified, display_order, parent_id)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            stableId,
+            taskData.title, taskData.description, taskData.status ?? 'Not Started',
+            taskData.priority ?? 'Unprioritized', taskData.due_date, categoryId,
+            taskData.assigned_to, workspace, rowNum, taskData.last_modified ?? now,
+            maxOrder + 1, parentLocalId,
+          )
+        : db.prepare(`
+            INSERT INTO tasks (title, description, status, priority, due_date,
+              category_id, assigned_to, workspace, sheet_row_id, last_modified, display_order, parent_id)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            taskData.title, taskData.description, taskData.status ?? 'Not Started',
+            taskData.priority ?? 'Unprioritized', taskData.due_date, categoryId,
+            taskData.assigned_to, workspace, rowNum, taskData.last_modified ?? now,
+            maxOrder + 1, parentLocalId,
+          )
+
+      const newId = idIsFree ? (stableId as number) : Number(result.lastInsertRowid)
       seenLocalIds.add(newId)
-      rowsNeedingId.push({ rowNum, taskId: newId })
+      if (newId !== stableId) rowsNeedingId.push({ rowNum, taskId: newId })
       added++
+      return newId
     }
+  }
+
+  // ── PULL pass 1: root tasks (rows with no _ParentTaskID) ────────────────
+  for (let i = 0; i < sheetRows.length; i++) {
+    const rowNum = i + 2  // 1-indexed, row 1 is header
+    const row = sheetRows[i]
+    if (!row || row.every(c => !c?.trim())) continue
+    if (tombstones.has(rowNum)) continue
+    if (getParentRaw(row)) continue  // subtask row, handled in pass 2
+
+    const taskIdRaw = taskIdColIndex !== -1 ? (row[taskIdColIndex] ?? '').trim() : ''
+    const stableId = taskIdRaw ? parseInt(taskIdRaw, 10) : null
+
+    const finalId = pullOneRow(row, rowNum, null)
+    if (finalId !== null && stableId) parentIdRemap.set(stableId, finalId)
+  }
+
+  // ── PULL pass 2: subtasks (rows with _ParentTaskID set) ──────────────────
+  // Only rows whose parent resolves to an actual root task are accepted — this keeps
+  // subtasks one level deep even if a sheet row is manually mis-edited to point at another subtask.
+  for (let i = 0; i < sheetRows.length; i++) {
+    const rowNum = i + 2
+    const row = sheetRows[i]
+    if (!row || row.every(c => !c?.trim())) continue
+    if (tombstones.has(rowNum)) continue
+    const parentRaw = getParentRaw(row)
+    if (!parentRaw) continue  // root row, handled in pass 1
+
+    const parentStableId = parseInt(parentRaw, 10)
+    if (isNaN(parentStableId)) continue
+
+    let parentLocalId = parentIdRemap.get(parentStableId)
+    if (parentLocalId === undefined) {
+      const parentRow = db.prepare(
+        'SELECT id FROM tasks WHERE id = ? AND workspace = ? AND parent_id IS NULL'
+      ).get(parentStableId, workspace) as { id: number } | undefined
+      parentLocalId = parentRow?.id
+    }
+    if (parentLocalId === undefined) continue  // parent missing locally and in this sync — orphaned row, skip
+
+    pullOneRow(row, rowNum, parentLocalId)
   }
 
   // Write _TaskID back for rows that were missing it
@@ -328,14 +392,17 @@ export async function syncWorkspace(
     } catch { /* non-critical */ }
   }
 
-  // Delete local tasks that disappeared from the sheet (and have a sheet_row_id = were synced)
+  // Delete local tasks that disappeared from the sheet (and have a sheet_row_id = were synced).
+  // Covers both root tasks and subtasks; deleting a root also cascades to its subtasks locally,
+  // same as a manual delete in the app, since parent_id has no ON DELETE CASCADE.
   type SyncedTask = { id: number }
   const syncedTasks = db.prepare(
-    'SELECT id FROM tasks WHERE workspace = ? AND sheet_row_id IS NOT NULL AND parent_id IS NULL'
+    'SELECT id FROM tasks WHERE workspace = ? AND sheet_row_id IS NOT NULL'
   ).all(workspace) as SyncedTask[]
 
   for (const { id } of syncedTasks) {
     if (!seenLocalIds.has(id)) {
+      db.prepare('DELETE FROM tasks WHERE parent_id = ?').run(id)
       db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
       deleted++
     }
@@ -346,14 +413,16 @@ export async function syncWorkspace(
     id: number; title: string; description: string | null; status: string
     priority: string; due_date: string | null; category_name: string | null
     assigned_to: string | null; last_modified: string | null; sheet_row_id: number | null
+    parent_id: number | null
   }
+  // Root tasks first, each immediately followed by its own subtasks, for a readable sheet layout.
   const localTasks = db.prepare(`
     SELECT t.id, t.title, t.description, t.status, t.priority, t.due_date,
-           c.name as category_name, t.assigned_to, t.last_modified, t.sheet_row_id
+           c.name as category_name, t.assigned_to, t.last_modified, t.sheet_row_id, t.parent_id
     FROM tasks t
     LEFT JOIN categories c ON t.category_id = c.id
-    WHERE t.workspace = ? AND t.parent_id IS NULL
-    ORDER BY t.display_order, t.id
+    WHERE t.workspace = ?
+    ORDER BY COALESCE(t.parent_id, t.id), (t.parent_id IS NOT NULL), t.display_order, t.id
   `).all(workspace) as DbTask[]
 
   // Read current sheet to know existing row count
@@ -373,6 +442,7 @@ export async function syncWorkspace(
 
   for (const task of localTasks) {
     const row = taskToRow(task as Record<string, unknown>, freshColumns, mapping, task.category_name, taskIdIdx)
+    if (parentIdColIndex !== -1) row[parentIdColIndex] = task.parent_id ? String(task.parent_id) : ''
 
     if (task.sheet_row_id) {
       // Update existing row
