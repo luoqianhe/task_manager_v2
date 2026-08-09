@@ -14,6 +14,19 @@ interface TaskRowProps {
   isExpanded?: boolean
   onToggle?: () => void
   isSubtask?: boolean
+  onAddSubtask?: (parentId: number) => void
+}
+
+const SECTION_STATUS: Record<'current' | 'backlog' | 'completed', string> = {
+  current: 'Not Started',
+  backlog: 'Backlog',
+  completed: 'Completed',
+}
+
+const SECTION_LABEL: Record<'current' | 'backlog' | 'completed', string> = {
+  current: 'Current',
+  backlog: 'Backlog',
+  completed: 'Completed',
 }
 
 function Badge({ label, color, style }: { label: string; color: string; style: 'text' | 'pill' }) {
@@ -32,14 +45,16 @@ function Badge({ label, color, style }: { label: string; color: string; style: '
 
 export function TaskRow({
   task, isSelected, onSelect, onStatusChange,
-  hasSubtasks, isExpanded, onToggle, isSubtask,
+  hasSubtasks, isExpanded, onToggle, isSubtask, onAddSubtask,
 }: TaskRowProps) {
   const { displaySettings, priorities, statuses, activeWorkspace } = useStore()
-  const { refresh } = useTasks()
+  const { refresh, updateTask } = useTasks()
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
 
   const isCompleted = task.status === 'Completed'
   const isPinned = (task.is_pinned ?? 0) === 1
+  const currentSection: 'current' | 'backlog' | 'completed' =
+    isCompleted ? 'completed' : task.status === 'Backlog' ? 'backlog' : 'current'
 
   const priorityColor = priorities.find(p => p.name === task.priority)?.color ?? '#6b7280'
   const statusColor   = statuses.find(s => s.name === task.status)?.color   ?? '#6b7280'
@@ -78,6 +93,18 @@ export function TaskRow({
     setMenu(null)
     await window.api.tasks.unpin(task.id)
     refresh()
+  }
+
+  const handleAddSubtask = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMenu(null)
+    onAddSubtask?.(task.id)
+  }
+
+  const handleMove = (section: 'current' | 'backlog' | 'completed') => async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMenu(null)
+    await updateTask(task.id, { status: SECTION_STATUS[section] })
   }
 
   const dueDateEl = task.due_date ? (() => {
@@ -197,6 +224,29 @@ export function TaskRow({
           style={{ left: menu.x, top: menu.y }}
           onClick={e => e.stopPropagation()}
         >
+          <button
+            onClick={handleAddSubtask}
+            className="w-full text-left px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 transition-colors"
+          >
+            Add Subtask
+          </button>
+
+          <div className="my-1 border-t border-neutral-700" />
+
+          {(['current', 'backlog', 'completed'] as const)
+            .filter((section) => section !== currentSection)
+            .map((section) => (
+              <button
+                key={section}
+                onClick={handleMove(section)}
+                className="w-full text-left px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 transition-colors"
+              >
+                Move to {SECTION_LABEL[section]}
+              </button>
+            ))}
+
+          <div className="my-1 border-t border-neutral-700" />
+
           {isPinned || activeWorkspace === 'current_tasks' ? (
             <button
               onClick={handleUnpin}

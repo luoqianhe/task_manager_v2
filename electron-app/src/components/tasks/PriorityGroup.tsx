@@ -26,11 +26,12 @@ interface PriorityGroupProps {
   selectedTaskId: number | null
   onSelect: (id: number) => void
   onStatusChange: (id: number, status: string) => void
+  onAddSubtask: (parentId: number) => void
 }
 
 export function PriorityGroup({
   priority, tasks, subtaskMap, expandedSubtasks,
-  onToggleSubtasks, selectedTaskId, onSelect, onStatusChange,
+  onToggleSubtasks, selectedTaskId, onSelect, onStatusChange, onAddSubtask,
 }: PriorityGroupProps) {
   const [collapsed, setCollapsed] = useState(false)
 
@@ -74,6 +75,7 @@ export function PriorityGroup({
                   hasSubtasks={hasSubtasks}
                   isExpanded={isExpanded}
                   onToggle={() => onToggleSubtasks(task.id)}
+                  onAddSubtask={onAddSubtask}
                 />
                 {hasSubtasks && isExpanded && subtasks.map((sub) => (
                   <TaskRow

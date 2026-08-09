@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { CheckSquare, Inbox, Archive, Settings, Clock, RefreshCw, Loader } from 'lucide-react'
+import { CheckSquare, Inbox, Archive, Settings, RefreshCw, Loader } from 'lucide-react'
 import { useStore } from '../../hooks/useStore'
 import { useTasks } from '../../hooks/useTasks'
 import type { TabType } from '../../types'
@@ -40,16 +40,11 @@ export function Sidebar({ onOpenSettings, onOpenSync }: SidebarProps) {
 
   return (
     <div className="sidebar flex flex-col h-full w-52 bg-neutral-900 border-r border-neutral-800 select-none">
-      {/* App title — drag region */}
+      {/* Drag region (keeps space clear for macOS traffic lights) */}
       <div
-        className="h-12 flex items-center px-4 pt-2"
+        className="h-12"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <div className="flex items-center gap-2">
-          <Clock size={16} className="text-blue-400" />
-          <span className="text-sm font-semibold text-neutral-200">Task Organizer</span>
-        </div>
-      </div>
+      />
 
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
         {/* Workspaces */}

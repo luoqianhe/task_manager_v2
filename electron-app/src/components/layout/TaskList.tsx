@@ -16,9 +16,10 @@ const TABS: Array<{ id: TabType; label: string }> = [
 
 interface TaskListProps {
   onAddTask: () => void
+  onAddSubtask: (parentId: number) => void
 }
 
-export function TaskList({ onAddTask }: TaskListProps) {
+export function TaskList({ onAddTask, onAddSubtask }: TaskListProps) {
   const { tasks, activeTab, setActiveTab, selectedTaskId, setSelectedTaskId, searchQuery, setSearchQuery, isLoading, taskCounts } = useStore()
   const { refresh, updateTask } = useTasks()
 
@@ -169,6 +170,7 @@ export function TaskList({ onAddTask }: TaskListProps) {
               selectedTaskId={selectedTaskId}
               onSelect={setSelectedTaskId}
               onStatusChange={handleStatusChange}
+              onAddSubtask={onAddSubtask}
             />
           ))
         ) : (
@@ -188,6 +190,7 @@ export function TaskList({ onAddTask }: TaskListProps) {
                     hasSubtasks={hasSubtasks}
                     isExpanded={isExpanded}
                     onToggle={() => toggleSubtasks(task.id)}
+                    onAddSubtask={onAddSubtask}
                   />
                   {hasSubtasks && isExpanded && subtasks.map((sub) => (
                     <TaskRow

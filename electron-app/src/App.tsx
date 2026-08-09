@@ -15,8 +15,14 @@ export default function App() {
     setWorkspaces, setDisplaySettings,
   } = useStore()
   const [showAddModal, setShowAddModal] = useState(false)
+  const [newTaskParentId, setNewTaskParentId] = useState<number | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showSync, setShowSync] = useState(false)
+
+  const openAddModal = (parentId: number | null = null) => {
+    setNewTaskParentId(parentId)
+    setShowAddModal(true)
+  }
 
   // Load workspace-independent lookups once on mount
   useEffect(() => {
@@ -52,7 +58,7 @@ export default function App() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
         e.preventDefault()
-        setShowAddModal(true)
+        openAddModal()
       }
       if (e.key === 'Escape') {
         setShowAddModal(false)
@@ -69,12 +75,12 @@ export default function App() {
       <Sidebar onOpenSettings={() => setShowSettings(true)} onOpenSync={() => setShowSync(true)} />
 
       <div className="flex flex-1 overflow-hidden">
-        <TaskList onAddTask={() => setShowAddModal(true)} />
+        <TaskList onAddTask={() => openAddModal()} onAddSubtask={(parentId) => openAddModal(parentId)} />
         <TaskDetail />
       </div>
 
       {showAddModal && (
-        <AddTaskModal onClose={() => setShowAddModal(false)} />
+        <AddTaskModal onClose={() => setShowAddModal(false)} initialParentId={newTaskParentId} />
       )}
 
       {showSettings && (

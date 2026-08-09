@@ -6,9 +6,10 @@ import type { TaskFormData } from '../../types'
 
 interface AddTaskModalProps {
   onClose: () => void
+  initialParentId?: number | null
 }
 
-export function AddTaskModal({ onClose }: AddTaskModalProps) {
+export function AddTaskModal({ onClose, initialParentId = null }: AddTaskModalProps) {
   const { categories, priorities, statuses, activeTab, tasks } = useStore()
   const { createTask } = useTasks()
 
@@ -24,7 +25,7 @@ export function AddTaskModal({ onClose }: AddTaskModalProps) {
     priority: 'Unprioritized',
     due_date: '',
     category_id: null,
-    parent_id: null,
+    parent_id: initialParentId,
     links: [],
   })
 
@@ -62,7 +63,7 @@ export function AddTaskModal({ onClose }: AddTaskModalProps) {
       <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800">
-          <h2 className="text-sm font-semibold text-neutral-200">New Task</h2>
+          <h2 className="text-sm font-semibold text-neutral-200">{initialParentId ? 'New Subtask' : 'New Task'}</h2>
           <button
             onClick={onClose}
             className="p-1 rounded-md text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
