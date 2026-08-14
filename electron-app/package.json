@@ -49,9 +49,12 @@
       ]
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        { "target": "nsis", "arch": ["x64", "arm64"] }
+      ],
       "icon": "assets/icon.ico",
-      "sign": "./skip-sign.js"
+      "sign": "./skip-sign.js",
+      "artifactName": "${productName} Setup ${version}-${arch}.${ext}"
     },
     "linux": {
       "target": "AppImage"
