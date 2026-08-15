@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('api', {
     create: (data: unknown) => ipcRenderer.invoke('tasks:create', data),
     update: (id: number, data: unknown) => ipcRenderer.invoke('tasks:update', id, data),
     delete: (id: number) => ipcRenderer.invoke('tasks:delete', id),
-    reorder: (id: number, newOrder: number) => ipcRenderer.invoke('tasks:reorder', id, newOrder),
+    reorder: (payload: unknown) => ipcRenderer.invoke('tasks:reorder', payload),
     counts: (workspace: string) => ipcRenderer.invoke('tasks:counts', workspace),
     pin: (taskId: number) => ipcRenderer.invoke('tasks:pin', taskId),
     unpin: (taskId: number) => ipcRenderer.invoke('tasks:unpin', taskId),

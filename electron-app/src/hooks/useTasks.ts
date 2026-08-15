@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useStore } from './useStore'
-import type { TaskFormData } from '../types'
+import type { TaskFormData, ReorderPayload } from '../types'
 
 export function useTasks() {
   const { activeTab, activeWorkspace, setTasks, setLoading, setTaskCounts } = useStore()
@@ -35,5 +35,11 @@ export function useTasks() {
     await refresh()
   }, [refresh])
 
-  return { refresh, createTask, updateTask, deleteTask }
+  const reorderTasks = useCallback(async (payload: ReorderPayload) => {
+    const res = await window.api.tasks.reorder(payload)
+    if (res.ok) await refresh()
+    return res
+  }, [refresh])
+
+  return { refresh, createTask, updateTask, deleteTask, reorderTasks }
 }

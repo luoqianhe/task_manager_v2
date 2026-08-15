@@ -15,6 +15,7 @@ interface TaskRowProps {
   onToggle?: () => void
   isSubtask?: boolean
   onAddSubtask?: (parentId: number) => void
+  dragHandle?: React.ReactNode
 }
 
 const SECTION_STATUS: Record<'current' | 'backlog' | 'completed', string> = {
@@ -45,7 +46,7 @@ function Badge({ label, color, style }: { label: string; color: string; style: '
 
 export function TaskRow({
   task, isSelected, onSelect, onStatusChange,
-  hasSubtasks, isExpanded, onToggle, isSubtask, onAddSubtask,
+  hasSubtasks, isExpanded, onToggle, isSubtask, onAddSubtask, dragHandle,
 }: TaskRowProps) {
   const { displaySettings, priorities, statuses, activeWorkspace } = useStore()
   const { refresh, updateTask } = useTasks()
@@ -143,6 +144,13 @@ export function TaskRow({
           className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r flex-shrink-0"
           style={{ background: priorityColor }}
         />
+      )}
+
+      {/* Drag handle */}
+      {dragHandle && (
+        <span className="w-3.5 flex-shrink-0 -ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {dragHandle}
+        </span>
       )}
 
       {/* Expand/collapse toggle */}

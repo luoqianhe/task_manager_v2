@@ -65,6 +65,13 @@ export interface Workspace {
 
 export type TabType = 'current' | 'backlog' | 'completed'
 
+export interface ReorderPayload {
+  movedId: number
+  parentId: number | null
+  priority?: string
+  orderedIds: number[]
+}
+
 export interface TaskFormData {
   title: string
   description: string
@@ -87,7 +94,7 @@ declare global {
         create: (data: Partial<TaskFormData>) => Promise<number>
         update: (id: number, data: Partial<TaskFormData & { status: string; completed_at?: string }>) => Promise<boolean>
         delete: (id: number) => Promise<boolean>
-        reorder: (id: number, newOrder: number) => Promise<boolean>
+        reorder: (payload: ReorderPayload) => Promise<{ ok: boolean; reason?: string }>
         counts: (workspace: string) => Promise<{ current: number; backlog: number; completed: number }>
         pin: (taskId: number) => Promise<boolean>
         unpin: (taskId: number) => Promise<boolean>

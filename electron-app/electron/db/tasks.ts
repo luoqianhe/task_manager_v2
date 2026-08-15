@@ -210,6 +210,53 @@ export function registerTaskHandlers() {
     return true
   })
 
+  // Reorder / reparent a task: renumber display_order for the destination
+  // sibling scope, and optionally change the moved task's parent_id/priority.
+  ipcMain.handle('tasks:reorder', (_event, payload: {
+    movedId: number
+    parentId: number | null
+    priority?: string
+    orderedIds: number[]
+  }) => {
+    const db = getDb()
+    const { movedId, parentId, priority, orderedIds } = payload
+
+    if (!orderedIds.includes(movedId)) {
+      return { ok: false, reason: 'orderedIds must include movedId' }
+    }
+
+    if (parentId !== null) {
+      const target = db.prepare('SELECT id, parent_id FROM tasks WHERE id = ?').get(parentId) as
+        | { id: number; parent_id: number | null }
+        | undefined
+      if (!target) return { ok: false, reason: 'target task not found' }
+      if (target.parent_id !== null) return { ok: false, reason: 'cannot nest under a subtask' }
+      if (parentId === movedId) return { ok: false, reason: 'cannot parent a task to itself' }
+
+      const currentParent = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(movedId) as
+        | { parent_id: number | null }
+        | undefined
+      if (currentParent?.parent_id !== parentId) {
+        const hasChildren = db.prepare('SELECT 1 FROM tasks WHERE parent_id = ? LIMIT 1').get(movedId)
+        if (hasChildren) return { ok: false, reason: 'cannot reparent a task that has its own subtasks' }
+      }
+    }
+
+    const now = new Date().toISOString()
+
+    db.transaction(() => {
+      db.prepare(`
+        UPDATE tasks SET parent_id = @parentId, priority = COALESCE(@priority, priority), last_modified = @now
+        WHERE id = @movedId
+      `).run({ movedId, parentId, priority: priority ?? null, now })
+
+      const stmt = db.prepare('UPDATE tasks SET display_order = ? WHERE id = ?')
+      orderedIds.forEach((id, i) => stmt.run(i * 10, id))
+    })()
+
+    return { ok: true }
+  })
+
   // Links
   ipcMain.handle('links:list', (_event, taskId: number) => {
     return getDb().prepare(

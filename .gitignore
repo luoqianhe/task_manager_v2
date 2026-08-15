@@ -195,6 +195,11 @@ electron-app/node_modules/
 electron-app/out/
 electron-app/dist/
 electron-app/build/
+electron-app/*.tsbuildinfo
+
+# electron-app/src/lib/ is real TS source, not a Python venv lib/ dir (see line 17 above)
+!electron-app/src/lib/
+!electron-app/src/lib/**
 
 # Sensitive / local-only files
 credentials.json
